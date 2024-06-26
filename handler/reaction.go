@@ -25,7 +25,6 @@ func HandleReaction(evt *slack.ReactionAddedEvent, client *slack.Client) error {
 		return fmt.Errorf("admin user id is not set")
 	}
 
-	msgInfo := slack.NewRefToMessage(evt.Item.Channel, evt.Item.Timestamp)
 	history, err := client.GetConversationHistory(&slack.GetConversationHistoryParameters{
 		ChannelID: evt.Item.Channel,
 		Latest:    evt.Item.Timestamp,
@@ -76,6 +75,15 @@ func HandleReaction(evt *slack.ReactionAddedEvent, client *slack.Client) error {
 		log.Println("failed to add emoji", err)
 		return fmt.Errorf("failed to add emoji: %w", err)
 	}
+
+	_, _, err = client.PostMessage(evt.Item.Channel,
+		slack.MsgOptionText(fmt.Sprintf("新しい絵文字 :%s: `%s` が追加されたぱか", emojiName, emojiName), false))
+	if err != nil {
+		log.Println("error posting message", err)
+		return fmt.Errorf("error posting message: %v", err)
+	}
+
+	return nil
 
 	return nil
 }
