@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/gif"
@@ -9,8 +10,8 @@ import (
 	"image/png"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/nfnt/resize"
@@ -84,7 +85,12 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 		return fmt.Errorf("error encoding resized image: %w", err)
 	}
 
-	if err := addEmoji(client, emojiName, tempBuffer.Bytes()); err != nil {
+	imageURL, err := uploadImage(tempBuffer.Bytes())
+	if err != nil {
+		log.Printf("Error uploading image: %v", err)
+		return fmt.Errorf("error uploading image: %w", err)
+	}
+	if err := addEmoji(client, emojiName, imageURL); err != nil {
 		log.Println("failed to add emoji", err)
 		return fmt.Errorf("failed to add emoji: %w", err)
 	}
@@ -99,37 +105,19 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 	return nil
 }
 
-func addEmoji(client *slack.Client, emojiName string, image []byte) error {
-	body := &bytes.Buffer{}
-	w := multipart.NewWriter(body)
+func addEmoji(client *slack.Client, emojiName string, imageURL string) error {
+	params := url.Values{}
+	params.Add("token", config.GetConfig().SlackToken)
+	params.Add("name", emojiName)
+	params.Add("url", imageURL)
 
-	if err := w.WriteField("name", emojiName); err != nil {
-		log.Println("failed to write field", err)
-		return fmt.Errorf("failed to write field: %w", err)
-	}
-
-	part, err := w.CreateFormFile("image", "emoji.png")
+	req, err := http.NewRequest("GET", SLACK_EMOJI_ADD_API+"?"+params.Encode(), nil)
 	if err != nil {
-		log.Println("failed to create form file", err)
-		return fmt.Errorf("failed to create form file: %w", err)
-	}
-	if _, err := io.Copy(part, bytes.NewReader(image)); err != nil {
-		log.Println("failed to copy image", err)
-		return fmt.Errorf("failed to copy image: %w", err)
+		log.Println("error creating request", err)
+		return fmt.Errorf("error creating request: %v", err)
 	}
 
-	if err := w.Close(); err != nil {
-		log.Println("failed to close writer", err)
-		return fmt.Errorf("failed to close writer: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", SLACK_EMOJI_ADD_API, body)
-	if err != nil {
-		log.Println("failed to create request", err)
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Authorization", "Bearer "+config.GetConfig().SlackToken)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -139,10 +127,29 @@ func addEmoji(client *slack.Client, emojiName string, image []byte) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		log.Println("failed to add emoji", resp.Status)
-		return fmt.Errorf("failed to add emoji: %s", resp.Status)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("error reading response body: %v", err)
+	}
+
+	var slackResp struct {
+		Ok    bool   `json:"ok"`
+		Error string `json:"error,omitempty"`
+	}
+
+	if err := json.Unmarshal(body, &slackResp); err != nil {
+		log.Println("error parsing response", err)
+		return fmt.Errorf("error parsing response: %v", err)
+	}
+
+	if !slackResp.Ok {
+		log.Println("Slack API error", slackResp.Error)
+		return fmt.Errorf("Slack API error: %s", slackResp.Error)
 	}
 
 	return nil
+}
+
+func uploadImage(image []byte) (string, error) {
+	return "", nil
 }
