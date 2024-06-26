@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"fmt"
 	"image"
+	"image/gif"
+	"image/jpeg"
 	"image/png"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/nfnt/resize"
@@ -44,17 +46,27 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 
 	file := history.Messages[0].Files[0]
 
-	resp, err := http.Get(file.URLPrivateDownload)
-	if err != nil {
+	var fileContent bytes.Buffer
+
+	if err := client.GetFile(file.URLPrivateDownload, &fileContent); err != nil {
 		log.Println("failed to download file", err)
 		return fmt.Errorf("failed to download file: %w", err)
 	}
-	defer resp.Body.Close()
 
-	img, _, err := image.Decode(resp.Body)
-	if err != nil {
-		log.Println("failed to decode image", err)
-		return fmt.Errorf("failed to decode image: %w", err)
+	fileType := http.DetectContentType(fileContent.Bytes())
+	log.Printf("Detected file type: %s", fileType)
+
+	var img image.Image
+	switch fileType {
+	case "image/jpeg":
+		img, err = jpeg.Decode(&fileContent)
+	case "image/png":
+		img, err = png.Decode(&fileContent)
+	case "image/gif":
+		img, err = gif.Decode(&fileContent)
+	default:
+		log.Printf("Unsupported image format: %s", fileType)
+		return fmt.Errorf("unsupported image format: %s", fileType)
 	}
 
 	resizedImage := resize.Resize(128, 128, img, resize.Lanczos3)
@@ -62,17 +74,13 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 	emojiName := fmt.Sprintf("%s", file.Name[:len(file.Name)-len(file.Filetype)-1])
 	emojiName = strings.ReplaceAll(emojiName, " ", "")
 
-	tempFile, err := os.CreateTemp("", "emoji_*.png")
-	if err != nil {
-		log.Println("failed to create temp file", err)
-		return fmt.Errorf("failed to create temp file: %w", err)
+	var tempBuffer bytes.Buffer
+	if err := png.Encode(&tempBuffer, resizedImage); err != nil {
+		log.Printf("Error encoding resized image: %v", err)
+		return fmt.Errorf("error encoding resized image: %w", err)
 	}
 
-	defer os.Remove(tempFile.Name())
-
-	png.Encode(tempFile, resizedImage)
-	tempFile.Close()
-	if err := addEmoji(emojiName, tempFile.Name()); err != nil {
+	if err := addEmoji(client, emojiName, tempBuffer.Bytes()); err != nil {
 		log.Println("failed to add emoji", err)
 		return fmt.Errorf("failed to add emoji: %w", err)
 	}
@@ -87,6 +95,6 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 	return nil
 }
 
-func addEmoji(name, path string) error {
+func addEmoji(client *slack.Client, emojiName string, image []byte) error {
 	return nil
 }
