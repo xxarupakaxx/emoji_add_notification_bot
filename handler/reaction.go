@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/nfnt/resize"
 	"github.com/slack-go/slack"
@@ -156,14 +157,20 @@ func addEmoji(emojiName string, imageURL string) error {
 
 func uploadImage(image []byte) (string, error) {
 	filename := generateFilename()
-	filepath := filepath.Join("tmp", filename)
+	path := filepath.Join("tmp", filename)
 
-	if err := os.WriteFile(filepath, image, 0o644); err != nil {
+	if err := os.WriteFile(path, image, 0o644); err != nil {
 		log.Println("failed to write image", err)
 		return "", fmt.Errorf("failed to write image: %w", err)
 	}
 
 	imageURL := fmt.Sprintf("%s/images/%s", config.GetConfig().BaseURL, filename)
+
+	go func() {
+		time.Sleep(5 * time.Minute)
+		os.Remove(filepath.Join("tmp", filepath.Base(imageURL)))
+	}()
+
 	return imageURL, nil
 }
 
