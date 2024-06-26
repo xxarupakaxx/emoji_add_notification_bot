@@ -167,7 +167,7 @@ func uploadImage(image []byte) (string, error) {
 	imageURL := fmt.Sprintf("%s/images/%s", config.GetConfig().BaseURL, filename)
 
 	go func() {
-		time.Sleep(5 * time.Minute)
+		time.Sleep(1 * time.Minute)
 		os.Remove(filepath.Join("tmp", filepath.Base(imageURL)))
 	}()
 
