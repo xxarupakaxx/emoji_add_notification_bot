@@ -21,6 +21,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	os.MkdirAll("tmp", os.ModePerm)
+
+	go handler.StartImageServer()
+
 	go func(ctx context.Context, client *slack.Client, socketClient *socketmode.Client) {
 		for {
 			select {

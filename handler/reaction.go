@@ -2,6 +2,8 @@ package handler
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -12,6 +14,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/nfnt/resize"
@@ -90,7 +94,7 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 		log.Printf("Error uploading image: %v", err)
 		return fmt.Errorf("error uploading image: %w", err)
 	}
-	if err := addEmoji(client, emojiName, imageURL); err != nil {
+	if err := addEmoji(emojiName, imageURL); err != nil {
 		log.Println("failed to add emoji", err)
 		return fmt.Errorf("failed to add emoji: %w", err)
 	}
@@ -105,7 +109,7 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 	return nil
 }
 
-func addEmoji(client *slack.Client, emojiName string, imageURL string) error {
+func addEmoji(emojiName string, imageURL string) error {
 	params := url.Values{}
 	params.Add("token", config.GetConfig().SlackToken)
 	params.Add("name", emojiName)
@@ -151,5 +155,20 @@ func addEmoji(client *slack.Client, emojiName string, imageURL string) error {
 }
 
 func uploadImage(image []byte) (string, error) {
-	return "", nil
+	filename := generateFilename()
+	filepath := filepath.Join("tmp", filename)
+
+	if err := os.WriteFile(filepath, image, 0o644); err != nil {
+		log.Println("failed to write image", err)
+		return "", fmt.Errorf("failed to write image: %w", err)
+	}
+
+	imageURL := fmt.Sprintf("%s/images/%s", config.GetConfig().BaseURL, filename)
+	return imageURL, nil
+}
+
+func generateFilename() string {
+	randomBytes := make([]byte, 16)
+	rand.Read(randomBytes)
+	return hex.EncodeToString(randomBytes) + ".png"
 }

@@ -12,6 +12,7 @@ type Config struct {
 	SlackAppToken string
 	SlackChannel  string
 	AdminUserID   string
+	BaseURL       string
 }
 
 var config *Config
@@ -46,10 +47,16 @@ func NewConfig() *Config {
 		log.Fatal("ADMIN_USER_ID is not set")
 	}
 
+	baseURL, ok := os.LookupEnv("BASE_URL")
+	if !ok {
+		log.Fatal("BASE_URL is not set")
+	}
+
 	return &Config{
 		SlackToken:    slackToken,
 		SlackAppToken: slackAppToken,
 		SlackChannel:  slackChannel,
 		AdminUserID:   adminUserID,
+		BaseURL:       baseURL,
 	}
 }
