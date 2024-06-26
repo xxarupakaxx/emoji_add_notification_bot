@@ -11,10 +11,11 @@ import (
 
 	"github.com/nfnt/resize"
 	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 	"github.com/xxarupakaxx/emoji_add_notification_bot/config"
 )
 
-func HandleReaction(evt *slack.ReactionAddedEvent, client *slack.Client) error {
+func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) error {
 	if evt.Reaction != "done" {
 		log.Println("reaction is not done")
 		return fmt.Errorf("reaction is not done")
@@ -82,8 +83,6 @@ func HandleReaction(evt *slack.ReactionAddedEvent, client *slack.Client) error {
 		log.Println("error posting message", err)
 		return fmt.Errorf("error posting message: %v", err)
 	}
-
-	return nil
 
 	return nil
 }

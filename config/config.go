@@ -17,10 +17,14 @@ type Config struct {
 var config *Config
 
 func GetConfig() *Config {
+	if config == nil {
+		config = NewConfig()
+	}
+
 	return config
 }
 
-func NewConfig() {
+func NewConfig() *Config {
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -42,7 +46,7 @@ func NewConfig() {
 		log.Fatal("ADMIN_USER_ID is not set")
 	}
 
-	config = &Config{
+	return &Config{
 		SlackToken:    slackToken,
 		SlackAppToken: slackAppToken,
 		SlackChannel:  slackChannel,
