@@ -1,0 +1,2 @@
+# emoji_add_notification_bot
+slackに絵文字が追加されたらメッセージを送信するのと、絵文字を追加するボット
