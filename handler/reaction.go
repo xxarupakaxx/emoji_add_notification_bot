@@ -7,7 +7,9 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strings"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/slack-go/slack/slackevents"
 	"github.com/xxarupakaxx/emoji_add_notification_bot/config"
 )
+
+const SLACK_EMOJI_ADD_API = "https://slack.com/api/admin.emoji.add"
 
 func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) error {
 	if evt.Reaction != "done" {
@@ -96,5 +100,49 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 }
 
 func addEmoji(client *slack.Client, emojiName string, image []byte) error {
+	body := &bytes.Buffer{}
+	w := multipart.NewWriter(body)
+
+	if err := w.WriteField("name", emojiName); err != nil {
+		log.Println("failed to write field", err)
+		return fmt.Errorf("failed to write field: %w", err)
+	}
+
+	part, err := w.CreateFormFile("image", "emoji.png")
+	if err != nil {
+		log.Println("failed to create form file", err)
+		return fmt.Errorf("failed to create form file: %w", err)
+	}
+	if _, err := io.Copy(part, bytes.NewReader(image)); err != nil {
+		log.Println("failed to copy image", err)
+		return fmt.Errorf("failed to copy image: %w", err)
+	}
+
+	if err := w.Close(); err != nil {
+		log.Println("failed to close writer", err)
+		return fmt.Errorf("failed to close writer: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", SLACK_EMOJI_ADD_API, body)
+	if err != nil {
+		log.Println("failed to create request", err)
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+config.GetConfig().SlackToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Println("failed to do request", err)
+		return fmt.Errorf("failed to do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Println("failed to add emoji", resp.Status)
+		return fmt.Errorf("failed to add emoji: %s", resp.Status)
+	}
+
 	return nil
 }
