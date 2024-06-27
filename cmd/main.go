@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -49,6 +50,11 @@ func main() {
 						case *slackevents.ReactionAddedEvent:
 							if err := handler.HandleReaction(ev, client); err != nil {
 								log.Println("failed to handle reaction", err)
+							}
+						case *slackevents.EmojiChangedEvent:
+							fmt.Println("emoji changed")
+							if err := handler.HandleNoticeEmoji(ev, client); err != nil {
+								log.Println("failed to handle emoji add", err)
 							}
 						}
 					}

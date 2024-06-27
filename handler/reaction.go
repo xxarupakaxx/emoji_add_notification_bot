@@ -101,7 +101,7 @@ func HandleReaction(evt *slackevents.ReactionAddedEvent, client *slack.Client) e
 	}
 
 	_, _, err = client.PostMessage(evt.Item.Channel,
-		slack.MsgOptionText(fmt.Sprintf("新しい絵文字 :%s: `%s` が追加されたぱか", emojiName, emojiName), false))
+		slack.MsgOptionText(fmt.Sprintf("新しい絵文字 :%s: `%s` が追加されたぱか :clap-nya:", emojiName, emojiName), false))
 	if err != nil {
 		log.Println("error posting message", err)
 		return fmt.Errorf("error posting message: %v", err)
